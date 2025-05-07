@@ -7,25 +7,53 @@ import { useState } from "react";
 export default function ChatPage() {
   // Initialize messages state with a welcome message from the bot
   const [messages, setMessages] = useState(
-    [{ sender: "bot", text: "Hello! My name is Vivek, the CollectWise Chatbot. How can I help you today?"}]
+    [{ sender: "bot", text: "Hello! My name is Vivek, the CollectWise Chatbot on behalf of The Bank of LOO. According to our records, you owe $2400."}]
   );
   
   // Initialize input state to store the current value of the message input field
   const [input, setInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   // Handle form submission when user sends a message
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!input.trim()) return;
 
     // Add the user's message to the messages array
     setMessages((prev) => [...prev, { sender: "user", text: input }]);
     setInput(""); // Clear the input field
+    setIsLoading(true);
 
-    // Simulate bot response with a delay
-    setTimeout(() => {
-      setMessages((prev) => [...prev, { sender: "bot", text: "hi" }]);
-    }, 300);
+    try {
+      // Call the backend API
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          history: messages.concat([{ sender: "user", text: input }])
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to get response');
+      }
+
+      const data = await response.json();
+      
+      // Add the bot's response to the messages
+      setMessages((prev) => [...prev, { sender: "bot", text: data.reply }]);
+    } catch (error) {
+      console.error('Error:', error);
+      // Add an error message if the API call fails
+      setMessages((prev) => [...prev, { 
+        sender: "bot", 
+        text: "I apologize, but I'm having trouble connecting right now. Please try again." 
+      }]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -57,6 +85,14 @@ export default function ChatPage() {
               </div>
             </div>
           ))}
+          {/* Show loading indicator */}
+          {isLoading && (
+            <div className="flex justify-start mb-4">
+              <div className="p-4 rounded-2xl bg-white text-gray-900 mr-12 border border-gray-200 shadow-md">
+                <p className="text-sm">Thinking...</p>
+              </div>
+            </div>
+          )}
         </div>
       </main>
 
@@ -68,10 +104,12 @@ export default function ChatPage() {
           onChange={(e) => setInput(e.target.value)}
           className="flex-1 p-2 border rounded-l-lg text-black font-sans focus:outline-none"
           placeholder="Type your message..."
+          disabled={isLoading}
         />
         <button
           type="submit"
-          className="bg-blue-600 text-white px-4 rounded-r-lg hover:bg-blue-700 font-sans"
+          className="bg-blue-600 text-white px-4 rounded-r-lg hover:bg-blue-700 font-sans disabled:opacity-50"
+          disabled={isLoading}
         >
           Send
         </button>
